@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1530">
+<link rel="manifest" href="manifest.webmanifest">
 <title>INIX FORECAST</title>
 <style>
 :root{--acc:#ffd54a;--accg:rgba(255,213,74,.45);--mute:rgba(255,255,255,.74);--glass:rgba(10,20,46,.38);--line:rgba(255,255,255,.2)}
@@ -188,11 +189,11 @@ const NTN=D.length;
 try{(JSON.parse(store.get("tn_places")||"[]")||[]).slice(0,8).forEach(p=>{if(p&&p.n&&isFinite(p.lat)&&isFinite(p.lon))D.push([String(p.n).replace(/[<>&"]/g,""),+p.lat,+p.lon,0])})}catch(e){}
 const CHENNAI=D.findIndex(d=>d[0]==="Chennai");
 const di=D.findIndex(d=>d[0]===store.get("tn_dist"));
-const state={tab:"now",sel:di>=0?di:CHENNAI,unit:store.get("tn_unit")||"C",lang:store.get("tn_lang")||"en",fx:store.get("tn_fx")!=="lite",act:store.get("tn_act")||"spray",metric:"rain",s:0,play:false,data:null,live:false,chat:[],busy:false,loading:false,raf:0,pt:0,cmpA:CHENNAI,cmpB:Math.min(CHENNAI+1,D.length-1)};
+const state={tab:"now",sel:di>=0?di:CHENNAI,unit:store.get("tn_unit")||"C",lang:store.get("tn_lang")||"en",fx:store.get("tn_fx")!=="lite",act:store.get("tn_act")||"spray",metric:"rain",s:0,play:false,data:null,live:false,chat:[],busy:false,loading:false,raf:0,pt:0,cmpA:CHENNAI,cmpB:Math.min(CHENNAI+1,D.length-1),alerts:store.get("tn_alerts")==="on",daily:store.get("tn_daily")==="on",amsg:""};
 if(!["en","ta","hi"].includes(state.lang))state.lang="en";
 if(!ACTS.some(a=>a.k===state.act))state.act="spray";
-const sv=()=>{store.set("tn_unit",state.unit);store.set("tn_lang",state.lang);store.set("tn_fx",state.fx?"full":"lite");store.set("tn_act",state.act)};
-const setSel=i=>{state.sel=i;store.set("tn_dist",D[i][0])};
+const sv=()=>{store.set("tn_unit",state.unit);store.set("tn_lang",state.lang);store.set("tn_fx",state.fx?"full":"lite");store.set("tn_act",state.act);savePrefs()};
+const setSel=i=>{state.sel=i;store.set("tn_dist",D[i][0]);savePrefs()};
 const $=s=>document.querySelector(s);
 const Lg=lg=>(en,hi,ta)=>lg==="hi"?hi:(lg==="ta"&&ta)?ta:en;
 const L=(en,hi,ta)=>Lg(state.lang)(en,hi,ta);
@@ -271,7 +272,7 @@ return{cur:{t:c.temperature_2m,ft:c.apparent_temperature,h:c.relative_humidity_2
 hr:{time:h.time,t:h.temperature_2m,pp:h.precipitation_probability.map(z),ps:h.precipitation.map(z),code:h.weather_code,gust:h.wind_gusts_10m.map(z)},
 daily:{time:y.time,code:y.weather_code,tmax:y.temperature_2m_max,tmin:y.temperature_2m_min,pp:y.precipitation_probability_max.map(z),ps:y.precipitation_sum.map(z),gust:y.wind_gusts_10m_max.map(z),sr:y.sunrise,ss:y.sunset,uv:y.uv_index_max.map(z)}}});
 state.live=true}catch(e){state.data=demo();state.live=false}
-{const w=SPLASH_END-Date.now();if(w>0)await new Promise(r=>setTimeout(r,w))}state.loading=false;document.body.style.overflow="";const appEl=$("#app");if(appEl){appEl.style.cssText="";appEl.className="shell"}if(state._prog){const el=$("#loadprog");if(el)el.style.width="100%"}render()}
+{const w=SPLASH_END-Date.now();if(w>0)await new Promise(r=>setTimeout(r,w))}state.loading=false;document.body.style.overflow="";const appEl=$("#app");if(appEl){appEl.style.cssText="";appEl.className="shell"}if(state._prog){const el=$("#loadprog");if(el)el.style.width="100%"}render();checkAlerts()}
 
 /* ---------- Rain ETA + Escape Finder (the Time Machine brain) ---------- */
 function eta(i){const o=state.data[i],h=o.hr,a=o.h0,n=Math.min(48,h.time.length-a),wet=s=>h.pp[a+s]>=55||h.ps[a+s]>=.5;
@@ -479,14 +480,14 @@ function aqiCmp(){const a=state.data[state.cmpA],b=state.data[state.cmpB],ca=a.c
 const la=aqiLevel(ca.aqi),lb=aqiLevel(cb.aqi);
 const bar=(v,max=300)=>'<div class="meter" style="margin-top:6px"><i style="width:'+Math.min(100,(v||0)/max*100)+'%;background:'+(v<=50?"#5CFF9D":v<=100?"#ffe066":v<=150?"#ff8a50":"#ff4d6d")+'"></i></div>';
 return header()+titleBar(L("Compare Air Quality","वायु गुणवत्ता तुलना","காற்று தரம் ஒப்பீடு"))+
-'<div class="card glass"><div class="row"><div style="flex:1"><label class="sub">'+L("District A","ज़िला A","மாவட்டம் A")+'</label><select data-act="cmpA" style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px">'+D.map((x,i)=>'<option value="'+i+'"'+(i===state.cmpA?" selected":"")+'>'+nm(i)+'</option>').join("")+'</select></div><div style="flex:1"><label class="sub">'+L("District B","ज़िला B","மாவட்டம் B")+'</label><select data-act="cmpB" style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px">'+D.map((x,i)=>'<option value="'+i+'"'+(i===state.cmpB?" selected":"")+'>'+nm(i)+'</option>').join("")+'</select></div></div></div>'+
+'<div class="card glass" style="position:relative;z-index:30"><div class="row"><div style="flex:1"><label class="sub">'+L("Place A","स्थान A","இடம் A")+'</label><select data-act="cmpA" style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px">'+D.map((x,i)=>'<option value="'+i+'"'+(i===state.cmpA?" selected":"")+'>'+nm(i)+'</option>').join("")+'</select>'+csBox("A")+'</div><div style="flex:1"><label class="sub">'+L("Place B","स्थान B","இடம் B")+'</label><select data-act="cmpB" style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px">'+D.map((x,i)=>'<option value="'+i+'"'+(i===state.cmpB?" selected":"")+'>'+nm(i)+'</option>').join("")+'</select>'+csBox("B")+'</div></div></div>'+
 '<div class="g2"><div class="card glass"><h4>'+nm(state.cmpA)+'</h4><div class="big">'+(ca.aqi!=null?ca.aqi:"—")+'</div><div class="sub">'+(ca.aqi!=null?pick(AQIL[la]):L("No data","डेटा नहीं","தரவு இல்லை"))+'</div>'+bar(ca.aqi)+'<div class="kv" style="margin-top:10px"><span>PM2.5 '+(ca.pm25!=null?ca.pm25:"—")+'</span><span>'+Tn(ca.t)+'</span></div></div>'+
 '<div class="card glass"><h4>'+nm(state.cmpB)+'</h4><div class="big">'+(cb.aqi!=null?cb.aqi:"—")+'</div><div class="sub">'+(cb.aqi!=null?pick(AQIL[lb]):L("No data","डेटा नहीं","தரவு இல்லை"))+'</div>'+bar(cb.aqi)+'<div class="kv" style="margin-top:10px"><span>PM2.5 '+(cb.pm25!=null?cb.pm25:"—")+'</span><span>'+Tn(cb.t)+'</span></div></div></div>'+
-'<p class="note">'+L("US AQI comparison. Lower is better. Data from Open-Meteo air quality models.","US AQI तुलना। कम बेहतर है। Open-Meteo वायु गुणवत्ता मॉडल से डेटा।","US AQI ஒப்பீடு. குறைவு சிறந்தது. Open-Meteo காற்று தர மாதிரிகளிலிருந்து தரவு.")+'</p>'}
+aqiExtras(ca,cb)+'<p class="note">'+L("US AQI comparison. Lower is better. Data from Open-Meteo air quality models.","US AQI तुलना। कम बेहतर है। Open-Meteo वायु गुणवत्ता मॉडल से डेटा।","US AQI ஒப்பீடு. குறைவு சிறந்தது. Open-Meteo காற்று தர மாதிரிகளிலிருந்து தரவு.")+'</p>'}
 function ai(){
-return header()+titleBar(L("Ask ENDER","ENDER से पूछें","ENDER-இடம் கேளுங்கள்"))+'<div class="pwr">'+L("Powered by Gemini","Gemini द्वारा संचालित","Gemini இயக்கும் AI")+'</div>'+'<div class="card glass"><div class="log" id="log" role="log" aria-live="polite"></div><div class="ask"><input id="q" placeholder="'+L("Ask me anything…","कुछ भी पूछें…","எதையும் கேளுங்கள்…")+'" aria-label="'+L("Your question","आपका प्रश्न","உங்கள் கேள்வி")+'"><button data-act="send">'+L("Send","भेजें","அனுப்பு")+'</button></div></div><p class="note">'+L("ENDER is an AI and can make mistakes. Weather answers use the forecast data in this app and are not an official warning.","ENDER एक AI है और गलती कर सकता है। मौसम के जवाब इस ऐप के पूर्वानुमान डेटा पर आधारित हैं और आधिकारिक चेतावनी नहीं हैं।","ENDER ஒரு AI; தவறுகள் நேரலாம். வானிலை பதில்கள் இந்த செயலியின் முன்னறிவிப்புத் தரவை அடிப்படையாகக் கொண்டவை; அதிகாரப்பூர்வ எச்சரிக்கை அல்ல.")+'</p>'}
+return header()+titleBar(L("Ask ENDER","ENDER से पूछें","ENDER-இடம் கேளுங்கள்"))+'<div class="pwr">'+L("Powered by Gemini","Gemini द्वारा संचालित","Gemini இயக்கும் AI")+'</div>'+'<div class="card glass"><div class="log" id="log" role="log" aria-live="polite"></div><div class="ask"><input id="q" placeholder="'+L("Ask me anything…","कुछ भी पूछें…","எதையும் கேளுங்கள்…")+'" aria-label="'+L("Your question","आपका प्रश्न","உங்கள் கேள்வி")+'"><button data-act="send">'+L("Send","भेजें","அனுப்பு")+'</button></div></div><p class="note">'+L("ENDER is an AI and can make mistakes. Weather answers use the forecast data in this app and are not an official warning.","ENDER एक AI है और गलती कर सकता है। मौसम के जवाब इस ऐप के पूर्वानुमान डेटा पर आधारित हैं और आधिकारिक चेतावनी नहीं हैं।","ENDER ஒரு AI; தவறுகள் நேரலாம். வானிலை பதில்கள் இந்த செயலியின் முன்னறிவிப்புத் தரவை அடிப்படையாகக் கொண்டவை; அதிகாரப்பூர்வ எச்சரிக்கை அல்ல.")+'</p>'+founderCard()}
 function settings(){const o=(v,l,c)=>'<option value="'+v+'"'+(String(c)===String(v)?" selected":"")+'>'+l+'</option>';
-return header()+titleBar(L("Settings","सेटिंग्स","அமைப்புகள்"),1)+'<div class="card glass"><div class="set"><span>'+L("My district","मेरा ज़िला","என் மாவட்டம்")+'</span><select data-act="sel">'+D.map((x,i)=>o(i,nm(i),state.sel)).join("")+'</select></div><div class="set"><span>'+L("Temperature unit","तापमान इकाई","வெப்பநிலை அலகு")+'</span><select data-act="unit">'+o("C","°C",state.unit)+o("F","°F",state.unit)+'</select></div><div class="set"><span>Language · மொழி · भाषा</span><select data-act="lang">'+o("en","English",state.lang)+o("ta","தமிழ்",state.lang)+o("hi","हिन्दी",state.lang)+'</select></div><div class="set"><span>'+L("Weather effects","मौसम इफ़ेक्ट","வானிலை விளைவுகள்")+'<br><small class="sub">'+L("Lite mode saves battery on older phones","Lite मोड पुराने फ़ोन की बैटरी बचाता है","Lite பயன்முறை பழைய போன்களில் பேட்டரியைச் சேமிக்கும்")+'</small></span><select data-act="fx">'+o("full",L("Full","पूरा","முழு"),state.fx?"full":"lite")+o("lite","Lite",state.fx?"full":"lite")+'</select></div><div class="set"><span>'+L("Gemini API key","Gemini API की","Gemini API விசை")+'<br><small class="sub">'+L("Free key for the Ask page – aistudio.google.com/apikey","Ask पेज के लिए मुफ़्त की – aistudio.google.com/apikey","Ask பக்கத்திற்கு இலவச விசை – aistudio.google.com/apikey")+'</small></span><input type="password" data-act="geminikey" placeholder="Paste Gemini key" value="'+(store.get("tn_gemini_key")||"")+'" style="border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px;max-width:50%;width:140px"><button type="button" data-eye="1" aria-label="Show or hide key" style="margin-left:6px;font-size:18px;color:#fff;flex:none">👁</button></div></div><p class="note">'+(GEO?L("District borders come from open government-boundary data.","ज़िलों की सीमाएँ खुले सरकारी सीमा-डेटा से ली गई हैं।","மாவட்ட எல்லைகள் திறந்த அரசு எல்லைத் தரவிலிருந்து எடுக்கப்பட்டவை."):L("Border data not loaded, so districts show as radar dots. Refresh with internet for real borders.","सीमा डेटा लोड नहीं हुआ, इसलिए ज़िले रडार बिंदुओं के रूप में दिख रहे हैं। असली सीमाओं के लिए इंटरनेट के साथ रीफ़्रेश करें।","எல்லைத் தரவு ஏற்றப்படவில்லை, எனவே மாவட்டங்கள் ரேடார் புள்ளிகளாகக் காட்டப்படுகின்றன. உண்மையான எல்லைகளுக்கு இணையத்துடன் புதுப்பிக்கவும்."))+'</p>'}
+return header()+titleBar(L("Settings","सेटिंग्स","அமைப்புகள்"),1)+'<div class="card glass"><div class="set"><span>'+L("My district","मेरा ज़िला","என் மாவட்டம்")+'</span><select data-act="sel">'+D.map((x,i)=>o(i,nm(i),state.sel)).join("")+'</select></div><div class="set"><span>'+L("Temperature unit","तापमान इकाई","வெப்பநிலை அலகு")+'</span><select data-act="unit">'+o("C","°C",state.unit)+o("F","°F",state.unit)+'</select></div><div class="set"><span>Language · மொழி · भाषा</span><select data-act="lang">'+o("en","English",state.lang)+o("ta","தமிழ்",state.lang)+o("hi","हिन्दी",state.lang)+'</select></div><div class="set"><span>'+L("Weather effects","मौसम इफ़ेक्ट","வானிலை விளைவுகள்")+'<br><small class="sub">'+L("Lite mode saves battery on older phones","Lite मोड पुराने फ़ोन की बैटरी बचाता है","Lite பயன்முறை பழைய போன்களில் பேட்டரியைச் சேமிக்கும்")+'</small></span><select data-act="fx">'+o("full",L("Full","पूरा","முழு"),state.fx?"full":"lite")+o("lite","Lite",state.fx?"full":"lite")+'</select></div><div class="set"><span>'+L("Rain & storm alerts","बारिश और तूफ़ान अलर्ट","மழை & புயல் அறிவிப்புகள்")+'<br><small class="sub">'+alertStatus()+'</small></span><select data-act="alerts">'+o("on",L("On","चालू","இயக்கு"),state.alerts&&alertPerm()==="granted"?"on":"off")+o("off",L("Off","बंद","நிறுத்து"),state.alerts&&alertPerm()==="granted"?"on":"off")+'</select></div><div class="set"><span>'+L("Daily weather notification","रोज़ का मौसम नोटिफ़िकेशन","தினசரி வானிலை அறிவிப்பு")+'<br><small class="sub">'+L("One simple weather note every morning","हर सुबह एक सरल मौसम सूचना","தினமும் காலை ஒரு எளிய வானிலை அறிவிப்பு")+'</small></span><select data-act="daily">'+o("on",L("On","चालू","இயக்கு"),state.daily&&alertPerm()==="granted"?"on":"off")+o("off",L("Off","बंद","நிறுத்து"),state.daily&&alertPerm()==="granted"?"on":"off")+'</select></div><div class="set"><span>'+L("Send a test alert","टेस्ट अलर्ट भेजें","சோதனை அறிவிப்பை அனுப்பு")+'</span><button type="button" data-act="testalert" style="border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;padding:8px 16px">🔔 '+L("Test","टेस्ट","சோதனை")+'</button></div>'+pushRows()+'<div class="set"><span>'+L("Gemini API key","Gemini API की","Gemini API விசை")+'<br><small class="sub">'+L("Free key for the Ask page – aistudio.google.com/apikey","Ask पेज के लिए मुफ़्त की – aistudio.google.com/apikey","Ask பக்கத்திற்கு இலவச விசை – aistudio.google.com/apikey")+'</small></span><input type="password" data-act="geminikey" placeholder="Paste Gemini key" value="'+(store.get("tn_gemini_key")||"")+'" style="border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px;max-width:50%;width:140px"><button type="button" data-eye="1" aria-label="Show or hide key" style="margin-left:6px;font-size:18px;color:#fff;flex:none">👁</button></div></div><p class="note">'+(GEO?L("District borders come from open government-boundary data.","ज़िलों की सीमाएँ खुले सरकारी सीमा-डेटा से ली गई हैं।","மாவட்ட எல்லைகள் திறந்த அரசு எல்லைத் தரவிலிருந்து எடுக்கப்பட்டவை."):L("Border data not loaded, so districts show as radar dots. Refresh with internet for real borders.","सीमा डेटा लोड नहीं हुआ, इसलिए ज़िले रडार बिंदुओं के रूप में दिख रहे हैं। असली सीमाओं के लिए इंटरनेट के साथ रीफ़्रेश करें।","எல்லைத் தரவு ஏற்றப்படவில்லை, எனவே மாவட்டங்கள் ரேடார் புள்ளிகளாகக் காட்டப்படுகின்றன. உண்மையான எல்லைகளுக்கு இணையத்துடன் புதுப்பிக்கவும்."))+'</p>'}
 
 /* ---------- Claude assistant ---------- */
 function sysPrompt(){
@@ -559,9 +560,9 @@ else if(g.pl){state.act=g.pl;sv();render(true)}
 else if(g.share){shareText(planText(),t)}
 else if(g.act==="play"){state.play=!state.play;clearInterval(state.pt);if(state.play){if(state.s>=47)state.s=0;state.pt=setInterval(()=>{state.s=(state.s+1)%48;updateRadar()},500)}updateRadar()}
 else if(g.act==="send")send($("#q").value);
-else if(g.act==="refresh")load()});
+else if(g.act==="pushon")enablePush();else if(g.act==="pushoff")disablePush();else if(g.act==="pushcopy")copyPush(t);else if(g.act==="testalert")testAlert();else if(g.act==="refresh")load()});
 document.addEventListener("change",e=>{const t=e.target,a=t.dataset&&t.dataset.act;if(!a)return;
-if(a==="sel")setSel(+t.value);if(a==="unit")state.unit=t.value;if(a==="lang")state.lang=t.value;if(a==="fx")state.fx=t.value==="full";if(a==="geminikey")store.set("tn_gemini_key",t.value);if(a==="cmpA")state.cmpA=+t.value;if(a==="cmpB")state.cmpB=+t.value;sv();render(true)});
+if(a==="sel")setSel(+t.value);if(a==="unit")state.unit=t.value;if(a==="lang")state.lang=t.value;if(a==="fx")state.fx=t.value==="full";if(a==="alerts"){setAlerts(t.value==="on");return}if(a==="daily"){setDaily(t.value==="on");return}if(a==="geminikey")store.set("tn_gemini_key",t.value);if(a==="cmpA")state.cmpA=+t.value;if(a==="cmpB")state.cmpB=+t.value;sv();render(true)});
 document.addEventListener("input",e=>{if(e.target.id==="rs"){state.s=+e.target.value;updateRadar()}});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing&&e.target.id==="q")send(e.target.value)});
 
@@ -646,6 +647,162 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-pk]");
 if(!b){if(!e.target.closest(".locwrap")){const x=$("#pres");if(x)x.style.display="none"}return}
 const k=b.dataset.pk;if(k==="GPS"){useGps();return}if(k[0]==="L"){setSel(+k.slice(1));render();return}
 const r=ps.res[+k.slice(1)];if(r)pickPlace(r)});
+/* ---------- Rain & storm alerts (browser notifications) ---------- */
+const ALERT_LAST="tn_alert_last";
+const alertsOK=()=>{try{return "Notification" in window}catch(e){return false}};
+const alertPerm=()=>alertsOK()?Notification.permission:"unsupported";
+function alertStatus(){const p=alertPerm();
+if(p==="unsupported")return L("Notifications are not supported in this browser","इस ब्राउज़र में नोटिफ़िकेशन उपलब्ध नहीं हैं","இந்த உலாவியில் அறிவிப்புகள் ஆதரிக்கப்படவில்லை");
+if(p==="denied")return L("Blocked – allow notifications for this site in browser settings","बंद है – ब्राउज़र सेटिंग में इस साइट के नोटिफ़िकेशन की अनुमति दें","தடுக்கப்பட்டுள்ளது – உலாவி அமைப்பில் இந்த தளத்திற்கு அனுமதி அளிக்கவும்");
+if(state.amsg)return state.amsg;
+return state.alerts&&p==="granted"?L("On – works while the app is open","चालू – ऐप खुला होने पर काम करता है","இயக்கத்தில் – செயலி திறந்திருக்கும்போது செயல்படும்"):L("Get notified about rain and storm watch","बारिश और तूफ़ान निगरानी की सूचना पाएँ","மழை மற்றும் புயல் கண்காணிப்பு அறிவிப்புகளைப் பெறுங்கள்")}
+async function alertIcon(){try{const im=document.querySelector('img[alt="INIX FORECAST"]');return im&&im.src&&im.src.indexOf("data:")===0?im.src:undefined}catch(e){return undefined}}
+async function notify(title,body,tag){
+try{if(!alertsOK()||Notification.permission!=="granted")return false;
+const opt={body:body,tag:tag||"inix",renotify:true,vibrate:[200,100,200],icon:"icon-192.png",data:{url:location.href.split("#")[0]}};
+if("serviceWorker" in navigator){try{const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,rj)=>setTimeout(rj,2500))]);await reg.showNotification(title,opt);return true}catch(e){}}
+new Notification(title,opt);return true}catch(e){return false}}
+async function setAlerts(on){state.amsg="";
+if(!on){state.alerts=false;store.set("tn_alerts","off");return}
+if(!alertsOK()){state.alerts=false;store.set("tn_alerts","off");return}
+let p=Notification.permission;
+if(p==="default"){try{p=await Notification.requestPermission()}catch(e){p=Notification.permission}}
+state.alerts=p==="granted";store.set("tn_alerts",state.alerts?"on":"off");savePrefs();
+if(state.alerts){state.amsg="";checkAlerts()}
+if(state.tab==="set")render(true)}
+async function testAlert(){
+if(!alertsOK()){state.amsg=alertStatus();render(true);return}
+if(Notification.permission==="default"){await setAlerts(true)}
+if(Notification.permission!=="granted"){render(true);return}
+let tt="🌧️ "+L("Test alert","टेस्ट अलर्ट","சோதனை அறிவிப்பு")+" · INIX Forecast",tb=L("Rain and storm alerts are working.","बारिश और तूफ़ान अलर्ट काम कर रहे हैं।","மழை மற்றும் புயல் அறிவிப்புகள் செயல்படுகின்றன.");
+try{if(state.data&&state.data[state.sel]){const n=dailyNote(state.sel);tt=n.title;tb=n.body+" ("+L("test","टेस्ट","சோதனை")+")"}}catch(e){}
+const ok=await notify(tt,tb,"inix-test");
+state.amsg=ok?L("Test alert sent – check your notifications","टेस्ट अलर्ट भेजा गया – नोटिफ़िकेशन देखें","சோதனை அறிவிப்பு அனுப்பப்பட்டது – அறிவிப்புகளைப் பாருங்கள்"):L("Could not show the notification. Make sure sw.js is uploaded next to index.html","नोटिफ़िकेशन नहीं दिखा। जाँचें कि sw.js, index.html के साथ अपलोड है","அறிவிப்பைக் காட்ட முடியவில்லை. index.html உடன் sw.js பதிவேற்றப்பட்டுள்ளதா எனப் பாருங்கள்");
+render(true)}
+function checkAlerts(){savePrefs();checkDaily();checkAlerts0()}
+function checkAlerts0(){
+if(!state.alerts||!state.live||!state.data||!state.data[state.sel])return;
+try{if(!alertsOK()||Notification.permission!=="granted")return}catch(e){return}
+const i=state.sel,key=D[i][0],place=nm(i),now=Date.now();let last={};
+try{last=JSON.parse(store.get(ALERT_LAST)||"{}")||{}}catch(e){last={}}
+const e=eta(i);
+if(e.t==="now"||(e.t==="soon"&&e.s0<=3)){const k=key+"|"+(e.t==="now"?"now":e.at);
+if(!(last.rain&&last.rain.k===k&&now-last.rain.t<6*36e5)){last.rain={k:k,t:now};
+notify("🌧️ "+L("Rain alert","बारिश अलर्ट","மழை எச்சரிக்கை")+" · "+place,etaText(i),"inix-rain")}}
+const cy=cyc(i);
+if(cy.lvl>=1){const k=key+"|"+cy.lvl+"|"+cy.day;
+if(!(last.storm&&last.storm.k===k&&now-last.storm.t<12*36e5)){last.storm={k:k,t:now};
+const tp=[tips,tipsH,tipsT][state.lang==="hi"?1:state.lang==="ta"?2:0][cy.lvl]||"";
+notify("⛈️ "+L("Storm watch","तूफ़ान निगरानी","புயல் கண்காணிப்பு")+" · "+lv(cy.lvl)+" · "+place,L("Max gust ","अधिकतम झोंका ","அதிகபட்ச காற்று ")+cy.g+" km/h. "+tp,"inix-storm")}}
+store.set(ALERT_LAST,JSON.stringify(last))}
+/* quietly refresh the selected place every 15 min while the app is open, then re-check */
+let alertBusy=false;
+async function alertRefresh(){if(!(state.alerts||state.daily)||!state.live||alertBusy)return;alertBusy=true;
+try{const d=D[state.sel],x=await fetchPlace(d[1],d[2]);if(x&&state.data[state.sel])state.data[state.sel]=x}catch(e){}
+alertBusy=false;checkAlerts()}
+setInterval(alertRefresh,15*60*1000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&(state.alerts||state.daily))alertRefresh()});
+try{if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
+/* ---------- Compare air quality: search any place in the world ---------- */
+function csBox(slot){return '<div style="position:relative;margin-top:8px"><input class="csin" data-slot="'+slot+'" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="🔍 '+L("Search any place…","कोई भी जगह खोजें…","எந்த இடத்தையும் தேடுங்கள்…")+'" aria-label="'+L("Search any place in the world","दुनिया की कोई भी जगह खोजें","உலகின் எந்த இடத்தையும் தேடுங்கள்")+'" style="width:100%;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px;font-size:16px"><div class="pres glass cres" data-cres="'+slot+'" style="width:min(310px,84vw);'+(slot==="A"?"right:auto":"left:auto")+'"></div></div>'}
+const cs={tok:0,t:0,res:[]};
+function geoMulti(q,isCur,onUpd,onEnd){const cm=q.match(COORD);
+if(cm){const la=+cm[1],lo=+cm[2];if(Math.abs(la)<=90&&Math.abs(lo)<=180){onUpd([{name:la+", "+lo,sub:L("Exact location","सटीक स्थान","துல்லியமான இடம்"),label:la.toFixed(3)+", "+lo.toFixed(3),kind:L("Coordinates","निर्देशांक","ஆயங்கள்"),latitude:la,longitude:lo}]);onEnd(1);return}}
+const vs=qVariants(q),jobs=[geoNomi(q)];vs.forEach(v=>jobs.push(geoPhoton(v)));jobs.push(geoMeteo(vs[0]));if(vs.length>1)jobs.push(geoMeteo(vs[vs.length-1]));
+const acc=[];let pend=jobs.length,ok=0;
+jobs.forEach(p=>p.then(l=>{ok++;if(!isCur())return;acc.push.apply(acc,l);onUpd(mergeRes(acc,q))}).catch(()=>{}).then(()=>{pend--;if(isCur()&&pend===0)onEnd(ok)}))}
+function csRender(slot,loading,err){const box=document.querySelector('[data-cres="'+slot+'"]');if(!box)return;let h="";
+if(cs.res.length)h=cs.res.map((r,k)=>'<button class="li" data-ck="'+slot+k+'"><span><b>'+esc(r.name)+'</b><br><span class="sub">'+esc(r.sub)+'</span></span>'+(r.kind?'<span class="tag">'+r.kind+'</span>':'')+'</button>').join("");
+else h='<div class="sub" style="padding:10px 2px">'+(loading?L("Searching…","खोज रहे हैं…","தேடுகிறது…"):err?L("Couldn't search. Check your internet connection.","खोज नहीं हो सकी। इंटरनेट जाँचें।","தேட முடியவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும்."):L("No places found","कोई जगह नहीं मिली","இடம் எதுவும் கிடைக்கவில்லை"))+'</div>';
+box.innerHTML=h;box.style.display="block"}
+document.addEventListener("input",e=>{const el=e.target;if(!el.classList||!el.classList.contains("csin"))return;
+const slot=el.dataset.slot,q=el.value.trim();clearTimeout(cs.t);const tok=++cs.tok;cs.res=[];
+if(!q){const b=document.querySelector('[data-cres="'+slot+'"]');if(b)b.style.display="none";return}
+csRender(slot,q.length>=2);if(q.length<2)return;
+cs.t=setTimeout(()=>geoMulti(q,()=>tok===cs.tok,l=>{cs.res=l;csRender(slot,false)},ok=>{if(!cs.res.length)csRender(slot,false,ok===0)}),500)});
+document.addEventListener("keydown",e=>{const el=e.target;if(e.key==="Enter"&&!e.isComposing&&el.classList&&el.classList.contains("csin")){const b=document.querySelector('[data-cres="'+el.dataset.slot+'"] [data-ck]');if(b)b.click();el.blur()}});
+document.addEventListener("click",e=>{const wc=e.target.closest("[data-wc]");
+if(wc){const w=WORLD[+wc.dataset.wc];wc.disabled=true;const t0=wc.textContent;wc.textContent="…";addPlace({n:w[0]+", "+w[1],lat:w[2],lon:w[3]}).then(i=>{state.cmpB=i;render(true)}).catch(()=>{wc.textContent=t0;wc.disabled=false});return}
+const b=e.target.closest("[data-ck]");
+if(!b){if(!e.target.closest(".csin,.cres"))document.querySelectorAll(".cres").forEach(x=>x.style.display="none");return}
+const slot=b.dataset.ck[0],r=cs.res[+b.dataset.ck.slice(1)],box=b.parentNode;if(!r)return;
+box.innerHTML='<div class="sub" style="padding:10px 2px">'+L("Loading forecast…","पूर्वानुमान लोड हो रहा है…","முன்னறிவிப்பு ஏற்றப்படுகிறது…")+'</div>';
+addPlace({n:clean(r.label||r.name).slice(0,60)||"Place",lat:+(+r.latitude).toFixed(3),lon:+(+r.longitude).toFixed(3)}).then(i=>{state["cmp"+slot]=i;render(true)}).catch(()=>{box.innerHTML='<div class="sub" style="padding:10px 2px">'+L("Couldn't load that place. Check your internet and try again.","वह जगह लोड नहीं हो सकी। इंटरनेट जाँचकर फिर कोशिश करें।","அந்த இடத்தை ஏற்ற முடியவில்லை. இணையத்தைச் சரிபார்த்து மீண்டும் முயலவும்.")+'</div>'})});
+/* ---------- Daily weather note + background checks ---------- */
+const todayStr=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+function dailyNote(i){const o=state.data[i],c=o.cur,y=o.daily,e=eta(i),pp=y.pp[0],mm=y.ps[0],place=nm(i);
+if(pp>=55||mm>=.5||e.t==="now")return{title:"🌧️ "+L("Rain today","आज बारिश","இன்று மழை")+" · "+place,body:pp+"% "+L("chance of rain","बारिश की संभावना","மழை வாய்ப்பு")+" · "+mm.toFixed(1)+" mm"+(e.t!=="none"?" · "+etaText(i):"")};
+return{title:emoji(c.code,c.day)+" "+cond(c.code,c.day)+" · "+place,body:L("Today","आज","இன்று")+": "+Tn(y.tmin[0])+" – "+Tn(y.tmax[0])+" · "+L("No rain expected","बारिश की उम्मीद नहीं","மழை எதிர்பார்க்கப்படவில்லை")}}
+function checkDaily(){if(!state.daily||!state.live||!state.data||!state.data[state.sel])return;
+try{if(!alertsOK()||Notification.permission!=="granted")return}catch(e){return}
+if(new Date().getHours()<6)return;const td=todayStr();let last={};
+try{last=JSON.parse(store.get(ALERT_LAST)||"{}")||{}}catch(e){last={}}
+if(last.daily===td)return;last.daily=td;store.set(ALERT_LAST,JSON.stringify(last));
+const n=dailyNote(state.sel);notify(n.title,n.body,"inix-daily")}
+async function setDaily(on){state.amsg="";
+if(!on||!alertsOK()){state.daily=false;store.set("tn_daily","off");savePrefs();return}
+let p=Notification.permission;
+if(p==="default"){try{p=await Notification.requestPermission()}catch(e){p=Notification.permission}}
+state.daily=p==="granted";store.set("tn_daily",state.daily?"on":"off");savePrefs();
+if(state.daily)checkDaily();
+if(state.tab==="set")render(true)}
+/* remember the chosen place + settings so the service worker can check in the background */
+async function savePrefs(){try{if(!("caches" in window))return;const d=D[state.sel];
+const p={daily:!!state.daily,alerts:!!state.alerts,lat:d[1],lon:d[2],coast:d[3]?1:0,name:nm(state.sel),en:d[0],lang:state.lang,unit:state.unit};
+const c=await caches.open("inix-prefs");await c.put("prefs.json",new Response(JSON.stringify(p)));
+if("serviceWorker" in navigator&&(p.daily||p.alerts)){const reg=await navigator.serviceWorker.ready;if(reg.periodicSync){try{await reg.periodicSync.register("inix-check",{minInterval:6*36e5})}catch(e){}}}}catch(e){}}
+/* ---------- Extras: AQI compare insights, founder card ---------- */
+const AQI_COL=["#5CFF9D","#ffe066","#ff9f43","#ff4d6d","#b84dff","#8a1c3c"];
+const AQI_TIP=[
+["Great air. Enjoy outdoor activities.","हवा बहुत अच्छी है। बाहर की गतिविधियों का आनंद लें।","காற்று மிகவும் நல்லது. வெளிப்புறச் செயல்பாடுகளை அனுபவியுங்கள்."],
+["Fine for most people. Very sensitive people should not overdo long outdoor effort.","ज़्यादातर लोगों के लिए ठीक है। बहुत संवेदनशील लोग लंबी बाहरी मेहनत न करें।","பெரும்பாலானோருக்கு நன்றாக உள்ளது. மிகவும் உணர்திறன் உள்ளவர்கள் நீண்ட நேரம் வெளியில் உழைக்க வேண்டாம்."],
+["Children, elders and people with asthma should cut down long time outdoors.","बच्चे, बुज़ुर्ग और अस्थमा के मरीज़ बाहर कम समय बिताएँ।","குழந்தைகள், முதியோர், ஆஸ்துமா உள்ளவர்கள் வெளியில் நீண்ட நேரம் இருப்பதைக் குறைக்கவும்."],
+["Limit outdoor exercise. A mask helps when you go out.","बाहर व्यायाम सीमित करें। बाहर जाते समय मास्क मदद करता है।","வெளியில் உடற்பயிற்சியைக் குறைக்கவும். வெளியே செல்லும்போது முகக்கவசம் உதவும்."],
+["Avoid outdoor activity. Keep windows closed and wear an N95 mask outside.","बाहरी गतिविधि से बचें। खिड़कियाँ बंद रखें और बाहर N95 मास्क पहनें।","வெளிப்புறச் செயல்பாட்டைத் தவிர்க்கவும். ஜன்னல்களை மூடி வைக்கவும், வெளியே N95 முகக்கவசம் அணியவும்."],
+["Stay indoors, use an air purifier and avoid going out.","घर के अंदर रहें, एयर प्यूरीफ़ायर चलाएँ और बाहर न जाएँ।","வீட்டுக்குள் இருங்கள், காற்று சுத்திகரிப்பானைப் பயன்படுத்துங்கள், வெளியே செல்ல வேண்டாம்."]];
+const WORLD=[["Delhi","India",28.614,77.209],["Beijing","China",39.905,116.407],["London","UK",51.507,-.128],["New York","USA",40.713,-74.006],["Tokyo","Japan",35.69,139.692],["Dubai","UAE",25.205,55.271],["Singapore","Singapore",1.352,103.82],["Sydney","Australia",-33.869,151.209]];
+function aqiExtras(ca,cb){const A=nm(state.cmpA),B=nm(state.cmpB),va=ca.aqi,vb=cb.aqi,card=(t,b)=>'<div class="card glass" style="margin-top:12px"><h4>'+t+'</h4>'+b+'</div>';let h="";
+if(va!=null&&vb!=null){const d=va-vb,ad=Math.abs(d),w=esc(d<0?A:B),pc=Math.round(ad/Math.max(va,vb,1)*100);
+const txt=ad<=5?L("Air quality is about the same in both places.","दोनों जगह हवा लगभग एक जैसी है।","இரு இடங்களிலும் காற்று தரம் கிட்டத்தட்ட ஒரே மாதிரி உள்ளது."):
+L("<b>"+w+"</b> has cleaner air by "+ad+" points ("+pc+"% lower).","<b>"+w+"</b> की हवा "+ad+" अंक ("+pc+"%) ज़्यादा साफ़ है।","<b>"+w+"</b> இல் காற்று "+ad+" புள்ளிகள் ("+pc+"%) தூய்மையாக உள்ளது.");
+h+=card("🏆 "+L("Verdict","नतीजा","முடிவு"),'<p style="margin:8px 0 0;font-size:16px">'+txt+'</p>')}
+const pos=v=>Math.min(100,Math.max(0,v/400*100))+"%",mk=(l,v,top)=>v==null?"":'<div style="position:absolute;left:'+pos(v)+';'+(top?'top:0':'bottom:0')+';transform:translateX(-50%);font-size:12px;font-weight:700;background:rgba(255,255,255,.22);padding:1px 8px;border-radius:999px">'+l+' '+v+'</div>';
+if(va!=null||vb!=null)h+=card("📏 "+L("On the AQI scale","AQI पैमाने पर","AQI அளவில்"),'<div style="position:relative;height:64px;margin-top:8px">'+mk("A",va,1)+'<div style="position:absolute;left:0;right:0;top:25px;height:12px;border-radius:6px;overflow:hidden;display:flex">'+[50,50,50,50,100,100].map((f,k)=>'<i style="flex:'+f+';background:'+AQI_COL[k]+'"></i>').join("")+'</div>'+mk("B",vb,0)+'</div><div class="sub" style="display:flex;justify-content:space-between"><span>0</span><span>100</span><span>200</span><span>300</span><span>400+</span></div>');
+const cg=p=>p==null?"—":(Math.round(p/22*10)/10).toString();
+if(ca.pm25!=null||cb.pm25!=null)h+=card("🚬 "+L("Fun fact","रोचक तथ्य","சுவாரஸ்யம்"),'<p style="margin:8px 0 0">'+L("Breathing this air for a whole day is roughly like smoking:","पूरे दिन इस हवा में साँस लेना लगभग इतनी सिगरेट पीने जैसा है:","இந்தக் காற்றை ஒரு நாள் முழுவதும் சுவாசிப்பது கிட்டத்தட்ட இவ்வளவு சிகரெட் புகைப்பதற்குச் சமம்:")+'</p><div class="kv" style="margin-top:8px"><span>'+esc(A)+': <b>'+cg(ca.pm25)+'</b></span><span>'+esc(B)+': <b>'+cg(cb.pm25)+'</b></span></div><p class="sub" style="margin:8px 0 0">'+L("Rule of thumb: PM2.5 of 22 µg/m³ ≈ 1 cigarette a day. Only a rough guide.","मोटा नियम: 22 µg/m³ PM2.5 ≈ दिन में 1 सिगरेट। यह केवल मोटा अनुमान है।","தோராய விதி: 22 µg/m³ PM2.5 ≈ ஒரு நாளுக்கு 1 சிகரெட். இது தோராய வழிகாட்டி மட்டுமே.")+'</p>');
+const wv=va==null?(vb==null?null:[B,vb]):(vb==null||va>=vb?[A,va]:[B,vb]);
+if(wv)h+=card("💡 "+L("What it means for you","आपके लिए इसका मतलब","உங்களுக்கு இதன் அர்த்தம்"),'<p style="margin:8px 0 0"><b>'+esc(wv[0])+'</b> · AQI '+wv[1]+' · '+pick(AQIL[aqiLevel(wv[1])])+'</p><p class="sub" style="margin:6px 0 0">'+pick(AQI_TIP[aqiLevel(wv[1])])+'</p>');
+h+=card("🌍 "+L("Compare A with a world city","A की तुलना दुनिया के शहर से करें","A-ஐ உலக நகரத்துடன் ஒப்பிடுங்கள்"),'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+WORLD.map((w,k)=>'<button type="button" class="tag" data-wc="'+k+'" style="font-size:13px;padding:7px 13px;margin:0">'+w[0]+'</button>').join("")+'</div>');
+return h}
+function founderCard(){return '<div class="card glass" style="margin-top:12px"><h4>'+L("Founder","संस्थापक","நிறுவனர்")+'</h4><div class="big" style="font-size:22px;letter-spacing:.3px">MOHAMED HAREEZ .N</div><div class="sub" style="margin-top:10px">✉️ <a href="mailto:nainarmohamed828@gmail.com" style="color:var(--acc);word-break:break-all">nainarmohamed828@gmail.com</a></div><div class="sub" style="margin-top:6px">🐙 GitHub: cyber punker 131</div><div class="sub" style="margin-top:10px;opacity:.8">INIX FORECAST</div></div>'}
+/* ---------- Background push (works when the app is closed; needs the GitHub push server) ---------- */
+const VAPID_PUB="BAuSy5hBKfga0ByS6qfv7BGh62PNKhlNg0JwMX65qMAcsY79NUny9c-src76dD6Rrs8cHB1vOkJNhFXoelyZ7nQ";
+const b64u=s=>{const p="=".repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,"+").replace(/_/g,"/")),o=new Uint8Array(r.length);for(let i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o};
+const pushSupported=()=>{try{return "serviceWorker" in navigator&&"PushManager" in window&&alertsOK()&&/^https?:$/.test(location.protocol)}catch(e){return false}};
+function pushJson(){if(!state.pushSub)return"";const d=D[state.sel];
+return JSON.stringify({sub:state.pushSub,p:{lat:d[1],lon:d[2],name:nm(state.sel),en:d[0],lang:state.lang,unit:state.unit,coast:d[3]?1:0,daily:!!state.daily,alerts:!!state.alerts}})}
+async function refreshPush(){try{if(!pushSupported())return;const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,rj)=>setTimeout(rj,4000))]);
+const s=await reg.pushManager.getSubscription();state.pushSub=s?s.toJSON():null;if(state.tab==="set")render(true)}catch(e){}}
+async function enablePush(){state.pmsg="";
+try{if(!pushSupported())return;let p=Notification.permission;if(p==="default")p=await Notification.requestPermission();
+if(p!=="granted"){state.pmsg=alertStatus();render(true);return}
+const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,rj)=>setTimeout(rj,4000))]);
+let s=await reg.pushManager.getSubscription();if(!s)s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUB)});
+state.pushSub=s.toJSON();if(!state.daily){state.daily=true;store.set("tn_daily","on")}if(!state.alerts){state.alerts=true;store.set("tn_alerts","on")}savePrefs();
+state.pmsg=L("Push is on. Now copy the text below into GitHub (see the steps)","पुश चालू है। नीचे का टेक्स्ट GitHub में डालें (स्टेप देखें)","புஷ் இயக்கப்பட்டது. கீழே உள்ள உரையை GitHub-இல் சேர்க்கவும் (படிகளைப் பாருங்கள்)")}
+catch(e){state.pmsg=L("Could not turn on push. Make sure sw.js is uploaded, then try again.","पुश चालू नहीं हो सका। sw.js अपलोड है या नहीं जाँचें, फिर कोशिश करें।","புஷ் இயக்க முடியவில்லை. sw.js பதிவேற்றப்பட்டுள்ளதா எனப் பார்த்து மீண்டும் முயலவும்.")}
+render(true)}
+async function disablePush(){try{const reg=await navigator.serviceWorker.ready,s=await reg.pushManager.getSubscription();if(s)await s.unsubscribe()}catch(e){}state.pushSub=null;state.pmsg="";render(true)}
+async function copyPush(btn){const ta=$("#pushjson");if(!ta)return;let ok=false;
+try{await navigator.clipboard.writeText(ta.value);ok=true}catch(e){try{ta.focus();ta.select();ok=document.execCommand("copy")}catch(e2){}}
+if(btn)btn.textContent=ok?"✅ "+L("Copied","कॉपी हो गया","நகலெடுக்கப்பட்டது"):"📋 "+L("Select all and copy","सब चुनकर कॉपी करें","அனைத்தையும் தேர்ந்து நகலெடுக்கவும்")}
+function pushRows(){const bs='border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;padding:8px 16px';
+if(!pushSupported())return'<div class="set"><span>'+L("Background push","बैकग्राउंड पुश","பின்னணி புஷ்")+'<br><small class="sub">'+L("Not supported in this browser","इस ब्राउज़र में उपलब्ध नहीं","இந்த உலாவியில் ஆதரிக்கப்படவில்லை")+'</small></span></div>';
+const on=!!state.pushSub;
+let h='<div class="set"><span>'+L("Background push (app closed)","बैकग्राउंड पुश (ऐप बंद)","பின்னணி புஷ் (செயலி மூடியிருந்தாலும்)")+'<br><small class="sub">'+(state.pmsg||L("Alerts even when the app is closed. One-time setup.","ऐप बंद होने पर भी अलर्ट। एक बार का सेटअप।","செயலி மூடியிருந்தாலும் அறிவிப்பு. ஒருமுறை அமைப்பு."))+'</small></span><button type="button" data-act="'+(on?"pushoff":"pushon")+'" style="'+bs+'">'+(on?L("Disable","बंद करें","நிறுத்து"):L("Enable","चालू करें","இயக்கு"))+'</button></div>';
+if(on)h+='<div class="set" style="display:block"><small class="sub">'+L("Copy this text. In GitHub, paste it into the secret named PUSH_SUBSCRIPTIONS.","यह टेक्स्ट कॉपी करें। GitHub में PUSH_SUBSCRIPTIONS नाम के secret में डालें।","இந்த உரையை நகலெடுக்கவும். GitHub-இல் PUSH_SUBSCRIPTIONS என்ற secret-இல் ஒட்டவும்.")+'</small><textarea id="pushjson" readonly rows="4" style="width:100%;margin-top:8px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.12);color:#fff;padding:8px;font-size:12px">'+esc(pushJson())+'</textarea><button type="button" data-act="pushcopy" style="margin-top:8px;'+bs+'">📋 '+L("Copy","कॉपी","நகலெடு")+'</button></div>';
+return h}
+refreshPush();
 /* ---------- Swipe navigation between pages ---------- */
 const TABS=["now","plan","aqi","ask"];
 let sx=0,sy=0;

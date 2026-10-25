@@ -1,0 +1,26 @@
+name: INIX push
+on:
+  schedule:
+    - cron: "35 * * * *"      # every hour at xx:35 UTC = xx:05 India time
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Send a test push to every saved phone now"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save web-push
+      - run: node push.mjs
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          PUSH_SUBSCRIPTIONS: ${{ secrets.PUSH_SUBSCRIPTIONS }}
+          FORCE_TEST: ${{ github.event.inputs.test }}
